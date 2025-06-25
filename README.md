@@ -66,7 +66,7 @@ Tokenization is the critical first step in preparing data for machine learning m
 
 2. **Install from source**:
    ```bash
-   git clone https://github.com/yourusername/zeichenformer.git
+   git clone https://github.com/pfluxa/zeichenformer.git
    cd zeichenformer
    pip install -e .
    ```

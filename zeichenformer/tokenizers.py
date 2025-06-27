@@ -74,7 +74,7 @@ class NumericalTokenizer:
         - Each bisection level adds exactly 0 or 1 to the output sequence
         """
         
-        return self._tokenizer.encode(values)
+        return self._tokenizer.encode(values) + self._offset
 
     def decode(self, tokens) -> np.ndarray:
         """
@@ -100,7 +100,7 @@ class NumericalTokenizer:
         - Else: move toward lower sub-interval
         3. Final position is the decoded value
         """
-        return self._tokenizer.decode(tokens)
+        return self._tokenizer.decode(tokens - self._offset)
     
     @property
     def offset(self) -> int:
@@ -123,7 +123,6 @@ class NumericalTokenizer:
         Maximum possible active tokens per encode (equal to num_bits).
         """
         return self._tokenizer.max_active_features
-
 
 
 class CategoryTokenizer:
@@ -199,7 +198,7 @@ class CategoryTokenizer:
         - Unseen category → 1 ("__unknown__")
         - Non-string input → TypeError
         """
-        return self._tokenizer.encode(values)
+        return self._tokenizer.encode(values) + self._offset
 
     def decode(self, tokens) -> list[str]:
         """
@@ -222,7 +221,7 @@ class CategoryTokenizer:
         - Returns placeholder strings for invalid tokens rather than raising
         - Non-integer inputs → TypeError
         """
-        return self._tokenizer.decode(tokens)
+        return self._tokenizer.decode(tokens - self._offset)
 
     @property
     def offset(self) -> int:
@@ -319,7 +318,7 @@ class TimestampTokenizer:
             >>> tokenizer.encode("2025-02-30T25:61:61")  # Invalid date/time
             array([7, 5, 46, 70, 130, 190], dtype=int32)  # Day/hour/minute/second invalid
         """
-        return self._tokenizer.encode(timestamps)
+        return self._tokenizer.encode(timestamps) + self._offset
 
     def decode(self, tokens) -> list[str]:
         """
@@ -341,7 +340,7 @@ class TimestampTokenizer:
             >>> tokenizer.decode(tokens)  # [[7, 5, 46, 70, 130, 190],]
             ["__invalid__"]
         """
-        return self._tokenizer.decode(tokens)
+        return self._tokenizer.decode(tokens - self._offset)
     
     @property
     def offset(self) -> int:

@@ -582,6 +582,10 @@ static PyObject* PyTimestampTokenizer_get_num_bits(PyTimestampTokenizer* self, v
     return PyLong_FromLong(total);
 }
 
+static PyObject* PyTimestampTokenizer_get_max_active_features(PyTimestampTokenizer* self, void* closure) {
+    return PyLong_FromLong(6);  // 6 active features
+}
+
 // --- Method Table & Type ---
 static PyMethodDef PyTimestampTokenizer_methods[] = {
     {"encode", (PyCFunction)PyTimestampTokenizer_encode, METH_VARARGS, "Encode timestamp"},

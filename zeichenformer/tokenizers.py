@@ -362,3 +362,7 @@ class TimestampTokenizer:
             3 + 101 + 12 + 31 + 24 + 60 + 60 = 291
         """
         return self._tokenizer.num_bits
+
+    @property
+    def max_active_features(self) -> int:
+        return self._tokenizer.max_active_features

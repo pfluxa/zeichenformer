@@ -53,7 +53,7 @@ class NumericalTokenizer:
             data = np.array(data, dtype=np.float64)
         self._tokenizer.fit(data)
 
-    def encode(self, values) -> np.ndarray:
+    def encode(self, values) -> list[np.ndarray]:
         """
         Encodes numerical values into bit position sequences.
 
@@ -74,10 +74,11 @@ class NumericalTokenizer:
         - Each bisection level adds exactly 0 or 1 to the output sequence
         """
         
-        token_list = self._tokenizer.encode(values)
-        for tokens in token_list:
-            tokens = tokens + self._offset
-        return token_list
+        tokens = self._tokenizer.encode(values)
+        offset_tokens = []
+        for t in tokens:
+            offset_tokens.append(t + self._offset)
+        return offset_tokens
 
     def decode(self, tokens) -> np.ndarray:
         """
@@ -179,7 +180,7 @@ class CategoryTokenizer:
         """
         self._tokenizer.fit(values)
 
-    def encode(self, values) -> np.ndarray:
+    def encode(self, values) -> list[np.ndarray]:
         """
         Converts category strings to integer tokens.
 
@@ -201,10 +202,11 @@ class CategoryTokenizer:
         - Unseen category → 1 ("__unknown__")
         - Non-string input → TypeError
         """
-        token_list = self._tokenizer.encode(values)
-        for tokens in token_list:
-            tokens = tokens + self._offset
-        return token_list
+        tokens = self._tokenizer.encode(values)
+        offset_tokens = []
+        for t in tokens:
+            offset_tokens.append(t + self._offset)
+        return offset_tokens
 
     def decode(self, tokens) -> list[str]:
         """
@@ -324,10 +326,11 @@ class TimestampTokenizer:
             >>> tokenizer.encode("2025-02-30T25:61:61")  # Invalid date/time
             array([7, 5, 46, 70, 130, 190], dtype=int32)  # Day/hour/minute/second invalid
         """
-        token_list = self._tokenizer.encode(values)
-        for tokens in token_list:
-            tokens = tokens + self._offset
-        return token_list
+        tokens = self._tokenizer.encode(values)
+        offset_tokens = []
+        for t in tokens:
+            offset_tokens.append(t + self._offset)
+        return offset_tokens
 
     def decode(self, tokens) -> list[str]:
         """

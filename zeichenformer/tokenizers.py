@@ -302,7 +302,7 @@ class TimestampTokenizer:
         self._offset = offset
         self._tokenizer = _TimestampTokenizer(min_year=min_year, max_year=max_year)
 
-    def encode(self, timestamps) -> np.ndarray:
+    def encode(self, values) -> list[np.ndarray]:
         """
         Converts ISO 8601 timestamps to component tokens.
 

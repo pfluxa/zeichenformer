@@ -31,7 +31,8 @@ class NumericalTokenizer:
         >>> tokenizer.encode(0.75)
         array([0, 1, 1, 1], dtype=int32)  # Indicates upper half at each bisection
     """
-    def __init__(self, num_bits: int = 8):
+    def __init__(self, num_bits: int = 8, offset: int = 0):
+        self._offset = offset
         self._tokenizer = _BinaryTokenizer(num_bits=num_bits)
 
     def fit(self, data: np.ndarray) -> None:
@@ -100,6 +101,10 @@ class NumericalTokenizer:
         3. Final position is the decoded value
         """
         return self._tokenizer.decode(tokens)
+    
+    @property
+    def offset(self) -> int:
+        return self._offset
 
     @property
     def num_bits(self) -> int:
@@ -118,6 +123,7 @@ class NumericalTokenizer:
         Maximum possible active tokens per encode (equal to num_bits).
         """
         return self._tokenizer.max_active_features
+
 
 
 class CategoryTokenizer:
@@ -146,7 +152,8 @@ class CategoryTokenizer:
         >>> tokenizer.decode([0, 1, 3])
         ["__missing__", "__unknown__", "banana"]
     """
-    def __init__(self):
+    def __init__(self, offset: int = 0):
+        self._offset = offset
         self._tokenizer = _CategoryTokenizer()
 
     def fit(self, values: list[str]) -> None:
@@ -218,6 +225,10 @@ class CategoryTokenizer:
         return self._tokenizer.decode(tokens)
 
     @property
+    def offset(self) -> int:
+        return self._offset
+    
+    @property
     def num_categories(self) -> int:
         """
         The number of unique categories learned (excluding sentinels).
@@ -282,7 +293,8 @@ class TimestampTokenizer:
     - Year: 0=below min, 1=above max
     - Other components: Highest token = invalid (e.g., month=15)
     """
-    def __init__(self, min_year: int = 2000, max_year: int = 2100):
+    def __init__(self, min_year: int = 2000, max_year: int = 2100, offset: int = 0):
+        self._offset = offset
         self._tokenizer = _TimestampTokenizer(min_year=min_year, max_year=max_year)
 
     def encode(self, timestamps) -> np.ndarray:
@@ -330,6 +342,10 @@ class TimestampTokenizer:
             ["__invalid__"]
         """
         return self._tokenizer.decode(tokens)
+    
+    @property
+    def offset(self) -> int:
+        return self._offset
 
     @property
     def num_bits(self) -> int:

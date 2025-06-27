@@ -595,6 +595,7 @@ static PyMethodDef PyTimestampTokenizer_methods[] = {
 
 static PyGetSetDef PyTimestampTokenizer_getset[] = {
     {"num_bits", (getter)PyTimestampTokenizer_get_num_bits, NULL, "Total number of bits", NULL},
+    {"max_active_features", (getter)PyTimestampTokenizer_get_max_active_features, NULL, "Total number features active (worst case)", NULL},
     {NULL}
 };
 

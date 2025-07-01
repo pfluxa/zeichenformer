@@ -12,6 +12,22 @@ void timestamp_init(TimestampTokenizer* t, int min_year, int max_year, int offse
     t->max_year = max_year;
     t->fitted = true;
     t->offset = offset;
+    // initialize fixed offsets
+    // -> year (0 is invalid)
+    t->bucket_offsets[0] = 1 + offset;
+    // -> month (+ year range)
+    t->bucket_offsets[1] = t->bucket_offsets[0] + (max_year - min_year);
+    // -> day (+12 months)
+    t->bucket_offsets[2] = t->bucket_offsets[1] + 12;
+    // -> hour (+31 days)
+    t->bucket_offsets[3] = t->bucket_offsets[2] + 31;
+    // -> minute (+24 hours)
+    t->bucket_offsets[4] = t->bucket_offsets[3] + 24;
+    // -> second (+60 minutes)
+    t->bucket_offsets[5] = t->bucket_offsets[4] + 60;
+    
+    // -> total number of tokens (+60 seconds)
+    t->num_tokens = t->bucket_offsets[5] + 60 - offset;
 }
 
 bool timestamp_parse(const TimestampTokenizer* t, const char* iso, struct tm* tm) {
@@ -86,69 +102,51 @@ void timestamp_encode(const TimestampTokenizer* t, const char* iso, int* tokens,
         printf("%s\n", iso);
         // Invalid format - mark all components as invalid
         *count = 6;
-        tokens[0] = 0 + t->offset;
-        tokens[1] = tokens[0];
-        tokens[2] = tokens[1];
-        tokens[3] = tokens[2];
-        tokens[4] = tokens[3];
-        tokens[5] = tokens[4];
+        tokens[0] = t->bucket_offsets[0];
+        tokens[1] = t->bucket_offsets[1];
+        tokens[2] = t->bucket_offsets[2];
+        tokens[3] = t->bucket_offsets[3];
+        tokens[4] = t->bucket_offsets[4];
+        tokens[5] = t->bucket_offsets[5];
         return;
     }
 
     // Year (offset 0)
-    tokens[(*count)++] = 1 + (tm.tm_year - t->min_year) + t->offset;
-
+    tokens[(*count)++] = tm.tm_year + t->bucket_offsets[0];
     // Month (offset 1)
-    tokens[(*count)++] = tokens[0] + (tm.tm_mon - 1);
-
+    tokens[(*count)++] = tm.tm_mon + t->bucket_offsets[1];
     // Day (offset 2)
-    tokens[(*count)++] = tokens[1] + tm.tm_mday;
-
+    tokens[(*count)++] = tm.tm_mday + t->bucket_offsets[2];
     // Hour (offset 3)
-    tokens[(*count)++] = tokens[2] + tm.tm_hour;
-
+    tokens[(*count)++] = tm.tm_hour + t->bucket_offsets[3];
     // Minute (offset 4)
-    tokens[(*count)++] = tokens[3] + tm.tm_min;
-
+    tokens[(*count)++] = tm.tm_min + t->bucket_offsets[4];
     // Second (offset 5)
-    tokens[(*count)++] = tokens[4] + tm.tm_sec;
+    tokens[(*count)++] = tm.tm_sec + t->bucket_offsets[5];
 }
 
 void timestamp_decode(const TimestampTokenizer* t, const int* tokens, int count, char* output) {
-    struct tm tm = {0};
     bool valid = true;
-
     // We expect exactly 6 tokens (year, month, day, hour, minute, second)
     if (count != 6) {
-        valid = false;
-    }
-    // check all tokens are non-zero while
-    // avoiding a nasty numerical overflow
-    int ok = tokens[0] - t->offset;
-    valid = (ok > 0);
-    if(valid) {
-        for(int i=1; i < 6; i++) {
-            ok = ok * tokens[i] / tokens[i-1];
-            valid = (ok > 0);
-            if(!valid) break;
-        }
-    }
-    else {
         strcpy(output, "__invalid__");
+        return;
     }
-
-    if (valid) {
-        tm.tm_year = tokens[0] - (1 - t->min_year + t->offset);
-        tm.tm_mon = tokens[1] - tokens[0];
-        tm.tm_mday = tokens[2] - tokens[1];
-        tm.tm_hour = tokens[3] - tokens[2];
-        tm.tm_min = tokens[4] - tokens[3];
-        tm.tm_sec = tokens[5] - tokens[4];
-        // Adjust month (0-11 -> 1-12) for output
-        snprintf(output, 64, "%04d-%02d-%02dT%02d:%02d:%02d",
-                tm.tm_year, tm.tm_mon + 1, tm.tm_mday,
-                tm.tm_hour, tm.tm_min, tm.tm_sec);
-    } else {
+    int tt[6];
+    tt[0] = tokens[0] - t->bucket_offsets[0];
+    tt[1] = tokens[1] - t->bucket_offsets[1];
+    tt[2] = tokens[2] - t->bucket_offsets[2];
+    tt[3] = tokens[3] - t->bucket_offsets[3];
+    tt[4] = tokens[4] - t->bucket_offsets[4];
+    tt[5] = tokens[5] - t->bucket_offsets[5];
+    // year = 0 -> invalid date
+    if(tt[0] == 0) {
         strcpy(output, "__invalid__");
+        return;
     }
+    // Adjust month (0-11 -> 1-12) for output
+    snprintf(output, 64, "%04d-%02d-%02dT%02d:%02d:%02d",
+            tt[0], tt[1], tt[2],
+            tt[3], tt[4], tt[5]
+    );
 }

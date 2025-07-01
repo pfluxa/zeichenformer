@@ -9,6 +9,8 @@ typedef struct __attribute__((aligned(8))) {
     int max_year;
     bool fitted;
     int offset;
+    int bucket_offsets[6];
+    int num_tokens;
 } TimestampTokenizer;
 
 // Initialize tokenizer

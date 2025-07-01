@@ -591,7 +591,7 @@ static PyObject* PyTimestampTokenizer_decode(PyTimestampTokenizer* self, PyObjec
 
 // --- Getter ---
 static PyObject* PyTimestampTokenizer_get_num_bits(PyTimestampTokenizer* self, void* closure) {
-    int total = 3 + (self->tokenizer.max_year - self->tokenizer.min_year + 1) +
+    int total = (self->tokenizer.max_year - self->tokenizer.min_year + 1) +
                 12 + 31 + 24 + 60 + 60;
     return PyLong_FromLong(total);
 }

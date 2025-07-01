@@ -83,6 +83,7 @@ void timestamp_encode(const TimestampTokenizer* t, const char* iso, int* tokens,
     int last = 0;
 
     if (!timestamp_parse(t, iso, &tm)) {
+        printf("%s\n", iso);
         // Invalid format - mark all components as invalid
         *count = 6;
         tokens[0] = 0 + t->offset;

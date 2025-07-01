@@ -4,7 +4,8 @@ import time
 from zeichenformer import CategoryTokenizer
 
 def test_basic():
-    tokenizer = CategoryTokenizer()
+    offset = 9
+    tokenizer = CategoryTokenizer(offset=offset)
     original_data = sorted([
         "apple", "banana", "cherry", "date", "elderberry", "fig", "grape",
         "honeydew", "kiwi", "lemon", "mango", "nectarine", "orange", "pear",
@@ -26,11 +27,11 @@ def test_basic():
     assert tokenizer.num_categories == len(original_data)
     
     # Test encode/decode
-    assert tokenizer.encode("almond") == 2
-    assert tokenizer.decode(2) == "almond"
+    assert tokenizer.encode("almond") == 2 + offset
+    assert tokenizer.decode(2 + offset) == "almond"
     assert tokenizer.encode("unknown") == 1  # Unknown
-    assert tokenizer.decode(1) == "__unknown__"
-    assert tokenizer.decode(0) == "__missing__"
+    assert tokenizer.decode(1 + offset) == "__unknown__"
+    assert tokenizer.decode(0 + offset) == "__missing__"
     
     # Test batch
     encoded = tokenizer.encode(data)

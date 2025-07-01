@@ -4,7 +4,7 @@ import time
 from zeichenformer import NumericalTokenizer
 
 def test_basic():
-    tokenizer = NumericalTokenizer(num_bits=24)
+    tokenizer = NumericalTokenizer(num_bits=24, offset=204)
     data = np.random.uniform(-1.0, 1.0, 1000)
     
     # Test fit

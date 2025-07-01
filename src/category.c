@@ -7,10 +7,11 @@ static int compare_strings(const void* a, const void* b) {
     return strcmp(*(const char**)a, *(const char**)b);
 }
 
-void category_init(CategoryTokenizer* t) {
+void category_init(CategoryTokenizer* t, int offset) {
     t->categories = NULL;
     t->num_categories = 0;
     t->fitted = false;
+    t->offset = offset;
 }
 
 void category_fit(CategoryTokenizer* t, const char** values, size_t n) {
@@ -64,7 +65,7 @@ int category_encode(const CategoryTokenizer* t, const char* value) {
     while (low <= high) {
         int mid = low + (high - low) / 2;
         int cmp = strcmp(value, t->categories[mid]);
-        if (cmp == 0) return mid + 2;  // Offset by 2 (sentinels at 0 and 1)
+        if (cmp == 0) return (mid + (2 + t->offset));  // Offset by 1
         else if (cmp < 0) high = mid - 1;
         else low = mid + 1;
     }
@@ -74,10 +75,10 @@ int category_encode(const CategoryTokenizer* t, const char* value) {
 
 const char* category_decode(const CategoryTokenizer* t, int token) {
     if (!t->fitted) return "__not_fitted__";
-    if (token == 0) return "__missing__";
-    if (token == 1) return "__unknown__";
-    if (token - 2 < 0 || token - 2 >= t->num_categories) return "__invalid__";
-    return t->categories[token - 2];
+    if (token - (t->offset) == 0) return "__missing__";
+    if (token - (t->offset) == 1) return "__unknown__";
+    if (token - (2 + t->offset) < 0 || token - (2 + t->offset) >= t->num_categories) return "__invalid__";
+    return t->categories[token - (2 + t->offset)];
 }
 
 void category_free(CategoryTokenizer* t) {

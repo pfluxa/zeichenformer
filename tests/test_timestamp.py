@@ -4,28 +4,27 @@ import time
 import numpy as np
 
 def test_basic():
-    tokenizer = TimestampTokenizer(min_year=2000, max_year=2100)
+    tokenizer = TimestampTokenizer(min_year=2020, max_year=2030, offset=17)
     
     # Test encode/decode
     iso = ["2023-05-15T14:37:29", "2023-05-15T14:37:30"]
     tokens = tokenizer.encode(iso)
     decoded = tokenizer.decode(tokens)
-    assert decoded == iso
-    
+    assert sum([dec == i for (dec, i) in zip(decoded, iso)]) == 2
     # Test invalid
     invalid_iso = ["2023-05-15T14:61:29",]
     tokens = tokenizer.encode(invalid_iso)
-    assert tokenizer.decode(tokens) == ["__invalid__",]
+    assert tokenizer.decode(tokens)[0] == "__invalid__"
     
     # Test out of range
     not_in_range = ["1989-12-15T00:00:00",]
     tokens = tokenizer.encode(not_in_range)
-    assert tokenizer.decode(tokens) == ["__invalid__",]
+    assert tokenizer.decode(tokens)[0] == "__invalid__"
     
     # # Test missing part
     incomplete = ["2023-05-15",]
     tokens = tokenizer.encode(incomplete)
-    assert tokenizer.decode(tokens) == ["__invalid__",]
+    assert tokenizer.decode(tokens)[0] == "__invalid__"
 
 def generate_timestamps():
     start_time = np.datetime64('2000-01-01T00:00:00')

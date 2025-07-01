@@ -9,10 +9,11 @@ typedef struct __attribute__((aligned(8))) {
     double min_val;
     double max_val;
     bool fitted;
+    int offset;
 } BinaryTokenizer;
 
 // Initialize tokenizer
-void binary_init(BinaryTokenizer* t, int num_bits);
+void binary_init(BinaryTokenizer* t, int num_bits, int offset);
 
 // Fit to data (calculate min/max)
 void binary_fit(BinaryTokenizer* t, const double* values, size_t n);

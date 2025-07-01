@@ -2,11 +2,12 @@
 #include <math.h>
 #include <float.h>
 
-void binary_init(BinaryTokenizer* t, int num_bits) {
+void binary_init(BinaryTokenizer* t, int num_bits, int offset) {
     t->num_bits = num_bits;
     t->min_val = NAN;
     t->max_val = NAN;
     t->fitted = false;
+    t->offset = offset;
 }
 
 void binary_fit(BinaryTokenizer* t, const double* values, size_t n) {
@@ -39,7 +40,7 @@ void binary_encode(const BinaryTokenizer* t, double value, int* indices, int* co
     // sentinel value for below minimum
     for (int b = 0; b < t->num_bits; b++) {
         if (value > center) {
-            indices[((*count)++)] = b;
+            indices[((*count)++)] = (b + 1) + t->offset;
             center += width / 2.0;
         } else {
             center -= width / 2.0;
@@ -58,7 +59,7 @@ double binary_decode(const BinaryTokenizer* t, const int* indices, int count) {
     for (int b = 0; b < t->num_bits; b++) {
         int active = 0;
         for (int i = 0; i < count; i++) {
-            if (indices[i] == b) active = 1;
+            if (indices[i] - (1 + t->offset) == b) active = 1;
         }
         value += active ? (width / 2.0) : (-width / 2.0);
         width /= 2.0;

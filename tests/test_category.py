@@ -26,7 +26,7 @@ def test_basic():
     assert tokenizer.num_categories == len(original_data)
     
     # Test encode/decode
-    assert tokenizer.encode("almond") == 2  
+    assert tokenizer.encode("almond") == 2
     assert tokenizer.decode(2) == "almond"
     assert tokenizer.encode("unknown") == 1  # Unknown
     assert tokenizer.decode(1) == "__unknown__"

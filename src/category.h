@@ -8,10 +8,11 @@ typedef struct __attribute__((aligned(8))) {
     char** categories;
     size_t num_categories;
     bool fitted;
+    int offset;
 } CategoryTokenizer;
 
 // Initialize tokenizer
-void category_init(CategoryTokenizer* t);
+void category_init(CategoryTokenizer* t, int offset);
 
 // Fit to data (extract unique categories)
 void category_fit(CategoryTokenizer* t, const char** values, size_t n);

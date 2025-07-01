@@ -8,13 +8,11 @@ typedef struct __attribute__((aligned(8))) {
     int min_year;
     int max_year;
     bool fitted;
+    int offset;
 } TimestampTokenizer;
 
 // Initialize tokenizer
-void timestamp_init(TimestampTokenizer* t, int min_year, int max_year);
-
-// Parse ISO 8601 timestamp
-bool timestamp_parse(const char* iso, struct tm* tm);
+void timestamp_init(TimestampTokenizer* t, int min_year, int max_year, int offset);
 
 // Encode timestamp into tokens
 void timestamp_encode(const TimestampTokenizer* t, const char* iso, int* tokens, int* count);

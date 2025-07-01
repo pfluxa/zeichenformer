@@ -33,7 +33,7 @@ class NumericalTokenizer:
     """
     def __init__(self, num_bits: int = 8, offset: int = 0):
         self._offset = offset
-        self._tokenizer = _BinaryTokenizer(num_bits=num_bits)
+        self._tokenizer = _BinaryTokenizer(num_bits=num_bits, offset=offset)
 
     def fit(self, data: np.ndarray) -> None:
         """
@@ -75,10 +75,7 @@ class NumericalTokenizer:
         """
         
         tokens = self._tokenizer.encode(values)
-        offset_tokens = []
-        for t in tokens:
-            offset_tokens.append(t + self._offset)
-        return offset_tokens
+        return tokens
 
     def decode(self, tokens) -> np.ndarray:
         """
@@ -104,7 +101,7 @@ class NumericalTokenizer:
         - Else: move toward lower sub-interval
         3. Final position is the decoded value
         """
-        return self._tokenizer.decode(tokens - self._offset)
+        return self._tokenizer.decode(tokens)
     
     @property
     def offset(self) -> int:
@@ -157,7 +154,7 @@ class CategoryTokenizer:
     """
     def __init__(self, offset: int = 0):
         self._offset = offset
-        self._tokenizer = _CategoryTokenizer()
+        self._tokenizer = _CategoryTokenizer(offset=offset)
 
     def fit(self, values: list[str]) -> None:
         """
@@ -203,10 +200,7 @@ class CategoryTokenizer:
         - Non-string input → TypeError
         """
         tokens = self._tokenizer.encode(values)
-        offset_tokens = []
-        for t in tokens:
-            offset_tokens.append(t + self._offset)
-        return offset_tokens
+        return tokens
 
     def decode(self, tokens) -> list[str]:
         """
@@ -229,7 +223,7 @@ class CategoryTokenizer:
         - Returns placeholder strings for invalid tokens rather than raising
         - Non-integer inputs → TypeError
         """
-        return self._tokenizer.decode(tokens - self._offset)
+        return self._tokenizer.decode(tokens)
 
     @property
     def offset(self) -> int:
@@ -302,7 +296,7 @@ class TimestampTokenizer:
     """
     def __init__(self, min_year: int = 2000, max_year: int = 2100, offset: int = 0):
         self._offset = offset
-        self._tokenizer = _TimestampTokenizer(min_year=min_year, max_year=max_year)
+        self._tokenizer = _TimestampTokenizer(min_year=min_year, max_year=max_year, offset=offset)
 
     def encode(self, values) -> list[np.ndarray]:
         """
@@ -327,10 +321,7 @@ class TimestampTokenizer:
             array([7, 5, 46, 70, 130, 190], dtype=int32)  # Day/hour/minute/second invalid
         """
         tokens = self._tokenizer.encode(values)
-        offset_tokens = []
-        for t in tokens:
-            offset_tokens.append(t + self._offset)
-        return offset_tokens
+        return tokens
 
     def decode(self, tokens) -> list[str]:
         """
@@ -352,7 +343,7 @@ class TimestampTokenizer:
             >>> tokenizer.decode(tokens)  # [[7, 5, 46, 70, 130, 190],]
             ["__invalid__"]
         """
-        return self._tokenizer.decode(tokens - self._offset)
+        return self._tokenizer.decode(tokens)
     
     @property
     def offset(self) -> int:

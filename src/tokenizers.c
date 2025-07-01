@@ -24,16 +24,19 @@ static void PyBinaryTokenizer_dealloc(PyBinaryTokenizer* self) {
 static PyObject* PyBinaryTokenizer_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
     PyBinaryTokenizer* self = (PyBinaryTokenizer*)type->tp_alloc(type, 0);
     if (!self) return NULL;
-    binary_init(&self->tokenizer, 8);  // Default 8 bits
+    int num_bits = 8;
+    int offset = 0;
+    binary_init(&self->tokenizer, num_bits, offset);
     return (PyObject*)self;
 }
 
 static int PyBinaryTokenizer_init(PyBinaryTokenizer* self, PyObject* args, PyObject* kwds) {
-    static char* kwlist[] = {"num_bits", NULL};
+    static char* kwlist[] = {"num_bits", "offset", NULL};
     int num_bits = 8;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|i", kwlist, &num_bits))
+    int offset = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ii", kwlist, &num_bits, &offset))
         return -1;
-    binary_init(&self->tokenizer, num_bits);
+    binary_init(&self->tokenizer, num_bits, offset);
     return 0;
 }
 
@@ -257,16 +260,26 @@ static void PyCategoryTokenizer_dealloc(PyCategoryTokenizer* self) {
 static PyObject* PyCategoryTokenizer_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
     PyCategoryTokenizer* self = (PyCategoryTokenizer*)type->tp_alloc(type, 0);
     if (!self) return NULL;
-    category_init(&self->tokenizer);
+    
+    int offset = 0;
+    category_init(&self->tokenizer, offset);
+    
     return (PyObject*)self;
 }
 
 static int PyCategoryTokenizer_init(PyCategoryTokenizer* self, PyObject* args, PyObject* kwds) {
+    int offset = 0;
     PyObject* categories = NULL;
-    static char* kwlist[] = {"categories", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|O", kwlist, &categories))
+    static char* kwlist[] = {"categories", "offset", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Oi", kwlist, &categories, &offset))
         return -1;
-    if (categories) {
+    
+    if(offset) {
+        if(offset > 0) category_init(&self->tokenizer, offset);
+    }
+
+    if (categories) 
+    {
         PyObject* seq = PySequence_Fast(categories, "Expected a sequence");
         if (!seq) return -1;
         Py_ssize_t len = PySequence_Fast_GET_SIZE(seq);
@@ -449,16 +462,17 @@ static void PyTimestampTokenizer_dealloc(PyTimestampTokenizer* self) {
 static PyObject* PyTimestampTokenizer_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
     PyTimestampTokenizer* self = (PyTimestampTokenizer*)type->tp_alloc(type, 0);
     if (!self) return NULL;
-    timestamp_init(&self->tokenizer, 2000, 2100);  // Default range
+    int offset = 0;
+    timestamp_init(&self->tokenizer, 2000, 2100, offset);  // Default range
     return (PyObject*)self;
 }
 
 static int PyTimestampTokenizer_init(PyTimestampTokenizer* self, PyObject* args, PyObject* kwds) {
-    static char* kwlist[] = {"min_year", "max_year", NULL};
-    int min_year = 2000, max_year = 2100;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ii", kwlist, &min_year, &max_year))
+    static char* kwlist[] = {"min_year", "max_year", "offset", NULL};
+    int min_year = 2000, max_year = 2100, offset = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|iii", kwlist, &min_year, &max_year, &offset))
         return -1;
-    timestamp_init(&self->tokenizer, min_year, max_year);
+    timestamp_init(&self->tokenizer, min_year, max_year, offset);
     return 0;
 }
 

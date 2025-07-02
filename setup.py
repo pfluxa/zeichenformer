@@ -22,7 +22,7 @@ extension = Extension(
 
 setup(
     name='zeichenformer',
-    version='1.0',
+    version='1.0.8',
     ext_modules=[extension],
     packages=['zeichenformer'],
     package_dir={'zeichenformer': './zeichenformer'},

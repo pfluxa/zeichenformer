@@ -112,7 +112,7 @@ void timestamp_encode(const TimestampTokenizer* t, const char* iso, int* tokens,
     }
 
     // Year (offset 0)
-    tokens[(*count)++] = tm.tm_year + t->bucket_offsets[0];
+    tokens[(*count)++] = (tm.tm_year - t->min_year) + t->bucket_offsets[0];
     // Month (offset 1)
     tokens[(*count)++] = tm.tm_mon + t->bucket_offsets[1];
     // Day (offset 2)
@@ -133,7 +133,7 @@ void timestamp_decode(const TimestampTokenizer* t, const int* tokens, int count,
         return;
     }
     int tt[6];
-    tt[0] = tokens[0] - t->bucket_offsets[0];
+    tt[0] = (tokens[0] + t->min_year) - t->bucket_offsets[0];
     tt[1] = tokens[1] - t->bucket_offsets[1];
     tt[2] = tokens[2] - t->bucket_offsets[2];
     tt[3] = tokens[3] - t->bucket_offsets[3];

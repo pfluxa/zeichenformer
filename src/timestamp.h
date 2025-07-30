@@ -1,25 +1,30 @@
-#ifndef TIMESTAMP_TOKENIZER_H
-#define TIMESTAMP_TOKENIZER_H
+#ifndef TIMESTAMP_H
+#define TIMESTAMP_H
 
+#include <stddef.h>
 #include <stdbool.h>
-#include <time.h>
+#include <time.h> // Required for struct tm
 
-typedef struct __attribute__((aligned(8))) {
+typedef struct {
     int min_year;
     int max_year;
-    bool fitted;
     int offset;
-    int bucket_offsets[6];
-    int num_tokens;
+    bool fitted;
 } TimestampTokenizer;
 
-// Initialize tokenizer
+/**
+ * @brief Initializes a TimestampTokenizer.
+ */
 void timestamp_init(TimestampTokenizer* t, int min_year, int max_year, int offset);
 
-// Encode timestamp into tokens
+/**
+ * @brief Encodes an ISO timestamp string into an array of 6 integer tokens.
+ */
 void timestamp_encode(const TimestampTokenizer* t, const char* iso, int* tokens, int* count);
 
-// Decode tokens into ISO 8601 string
-void timestamp_decode(const TimestampTokenizer* t, const int* tokens, int count, char* output);
+/**
+ * @brief Decodes an array of 6 integer tokens back into an ISO timestamp string.
+ */
+void timestamp_decode(const TimestampTokenizer* t, const int* tokens, int count, char* output, size_t output_size);
 
-#endif
+#endif // TIMESTAMP_H

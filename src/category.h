@@ -1,29 +1,38 @@
-#ifndef CATEGORY_TOKENIZER_H
-#define CATEGORY_TOKENIZER_H
+#ifndef CATEGORY_H
+#define CATEGORY_H
 
-#include <stdbool.h>
 #include <stddef.h>
+#include <stdbool.h>
 
-typedef struct __attribute__((aligned(8))) {
-    char** categories;
-    size_t num_categories;
-    bool fitted;
+typedef struct {
+    char** categories;       // Sorted list of unique category strings
+    size_t num_categories;   // The number of learned string categories
+    int num_tokens;          // Total codes (num_categories + 2 for missing/unknown)
     int offset;
+    bool fitted;
 } CategoryTokenizer;
 
-// Initialize tokenizer
+/**
+ * @brief Initializes a CategoryTokenizer.
+ */
 void category_init(CategoryTokenizer* t, int offset);
 
-// Fit to data (extract unique categories)
-void category_fit(CategoryTokenizer* t, const char** values, size_t n);
-
-// Encode value into tokens
-int category_encode(const CategoryTokenizer* t, const char* value);
-
-// Decode token into value
-const char* category_decode(const CategoryTokenizer* t, int token);
-
-// Free resources
+/**
+ * @brief Free allocated memory by a CategoryTokenizer.
+ */
 void category_free(CategoryTokenizer* t);
 
-#endif
+/**
+ * @brief Fits the tokenizer to a dataset of strings.
+ */
+void category_fit(CategoryTokenizer* t, const char** values, size_t n);
+
+/**
+ * @brief Encodes a single string value into its integer token.
+ * @return The integer token, or -1 if the tokenizer is not fitted.
+ */
+int category_encode(const CategoryTokenizer* t, const char* value);
+
+const char* category_decode(const CategoryTokenizer* t, int token);
+
+#endif // CATEGORY_H

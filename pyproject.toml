@@ -1,8 +1,20 @@
-# pyproject.toml
 [build-system]
+# These are the packages needed to build your package.
+# numpy is needed here because setup.py will call numpy.get_include().
 requires = ["setuptools", "wheel", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "zeichenformer"
-version = "1.0"
+version = "1.1.0"
+requires-python = ">=3.8"
+# These are the runtime dependencies for your package.
+dependencies = [
+    "numpy"
+]
+
+[tool.setuptools.packages.find]
+# This tells setuptools to find the 'zeichenformer' Python package.
+where = ["."]
+include = ["zeichenformer*"]
+exclude = ["tests*"]

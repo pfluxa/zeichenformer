@@ -1,6 +1,9 @@
 import numpy as np
+from collections.abc import Iterable
+
+# NOTE: This imports the C-extension classes we built.
 from ._tokenizers import (
-    BinaryTokenizer as _BinaryTokenizer,
+    NumericalTokenizer as _NumericalTokenizer,
     CategoryTokenizer as _CategoryTokenizer,
     TimestampTokenizer as _TimestampTokenizer
 )
@@ -8,221 +11,184 @@ from ._tokenizers import (
 
 class NumericalTokenizer:
     """
-    Tokenizes numerical data using recursive interval bisection (binary space partitioning).
-    Each value is encoded as a sequence of bits representing its position within progressively
-    smaller sub-intervals of the fitted range.
+    Tokenizes numerical data using recursive interval bisection.
+
+    This tokenizer learns a min/max range from data and encodes any value
+    as a sparse set of active "bits". Each bit corresponds to a sub-interval,
+    allowing a model to learn non-linear responses to numerical features.
 
     The encoding process:
-    1. Divides the fitted range [min_val, max_val] into two equal sub-intervals
-    2. Records which sub-interval contains the value (0=lower, 1=upper)
-    3. Recursively bisects the chosen sub-interval for `num_bits` iterations
-    4. Returns the sequence of bit positions that were "activated"
+    1. For a given value, it finds its position within the fitted range [min, max].
+    2. It recursively bisects this range `num_bits` times.
+    3. At each step, it records which half the value falls into (0=lower, 1=upper).
+    4. The final output is a sparse array of the integer indices of the "activated" bits.
 
-    The decoding process reverses this by reconstructing the value from the bit positions.
+    Special sentinel bits are reserved to handle values outside the fitted range or NaN.
 
     Args:
-        num_bits (int, optional): Number of bisection iterations (bits) to use.
-                                Higher values give more precision but longer token sequences.
-                                Default: 8.
+        num_bits (int, optional): The number of bisections to perform. This controls
+            the precision of the encoding. Defaults to 8.
+        offset (int, optional): An integer added to all output token indices, allowing
+            multiple tokenizers to have non-overlapping vocabularies. Defaults to 0.
 
     Example:
-        >>> tokenizer = BinaryTokenizer(num_bits=4)
+        >>> tokenizer = NumericalTokenizer(num_bits=4)
         >>> tokenizer.fit([0.0, 1.0])
-        >>> tokenizer.encode(0.75)
-        array([0, 1, 1, 1], dtype=int32)  # Indicates upper half at each bisection
+        >>> # 0.8 is in the upper half (1), then upper (1), then lower (0), then upper (1)
+        >>> tokenizer.encode(0.8)
+        array([1, 3, 6, 7], dtype=int32) # Sparse indices of active bits
     """
     def __init__(self, num_bits: int = 8, offset: int = 0):
         self._offset = offset
-        self._tokenizer = _BinaryTokenizer(num_bits=num_bits, offset=offset)
+        self._tokenizer = _NumericalTokenizer(num_bits=num_bits, offset=offset)
 
-    def fit(self, data: np.ndarray) -> None:
+    def fit(self, data: Iterable[float]) -> None:
         """
-        Fits the tokenizer to the input data range.
+        Fits the tokenizer to determine the min/max range of the data.
 
-        Parameters:
-            data : np.ndarray[float]
-                1D array of values used to determine the [min_val, max_val] range.
-                All future encodes will be relative to this range.
-
-        Implementation Notes:
-        - Uses exact min/max from data (no epsilon padding)
-        - NaN values are ignored during fitting
-        - Empty input leaves tokenizer in unfitted state (encode/decode will return NaN)
+        Args:
+            data (Iterable[float]): A sequence of numbers used to find the
+                min/max range for encoding. NaN values are ignored.
         """
+        # NOTE: More robust type checking on the Python side.
         if not isinstance(data, np.ndarray):
             data = np.array(data, dtype=np.float64)
+        elif data.dtype != np.float64:
+            data = data.astype(np.float64)
         self._tokenizer.fit(data)
 
-    def encode(self, values) -> list[np.ndarray]:
+    def encode(self, values: float | Iterable[float]) -> np.ndarray | list[np.ndarray]:
         """
-        Encodes numerical values into bit position sequences.
+        Encodes one or more numerical values into sparse token arrays.
 
-        Parameters:
-            values : float | Iterable[float]
-                Input value(s) to encode. Can be:
-                - Single float -> returns 1D array
-                - Sequence of floats -> returns list of 1D arrays
+        Args:
+            values (float | Iterable[float]): A single float or a sequence of floats.
 
         Returns:
-            np.ndarray[int32] | list[np.ndarray[int32]]
-                For single input: 1D array of active bit positions (0 to num_bits-1)
-                For multiple inputs: List of such arrays
-
-        Implementation Details:
-        - Values outside fitted range return empty arrays
-        - NaN inputs return empty arrays
-        - Each bisection level adds exactly 0 or 1 to the output sequence
+            np.ndarray | list[np.ndarray]:
+            - If input is a single float, returns a 1D NumPy array of active token indices.
+            - If input is a sequence, returns a list of such NumPy arrays.
         """
+        print(values)
+        if not isinstance(values, np.ndarray):
+            raise TypeError("Input must be a 1D numpy array of floats.")
+        return self._tokenizer.encode(values)
+
+    def decode(self, tokens: Iterable[int] | Iterable[Iterable[int]]) -> float | np.ndarray:
+        """
+        Decodes one or more token sequences back into numerical values.
+
+        Since encoding is lossy (quantization), the decoded value will be the
+        center of the final sub-interval, not the exact original value.
+
+        Args:
+            tokens (Iterable[int] | Iterable[Iterable[int]]): A single token
+                sequence or a sequence of token sequences.
+
+        Returns:
+            float | np.ndarray:
+            - If input is a single token sequence, returns the reconstructed float.
+            - If input is a sequence of sequences, returns a 1D NumPy array of floats.
+        """
+        # NOTE: Smarter type checking to guide the user.
+        if not isinstance(tokens, (list, tuple, np.ndarray)):
+            raise TypeError("Input must be a sequence of integer tokens.")
         
-        tokens = self._tokenizer.encode(values)
-        return tokens
+        # NOTE: Convert list output from C extension to NumPy array for consistency.
+        print(tokens)
+        decoded_values = self._tokenizer.decode(tokens)
+        if isinstance(decoded_values, list):
+            return np.array(decoded_values, dtype=np.float64)
+        return decoded_values
 
-    def decode(self, tokens) -> np.ndarray:
-        """
-        Reconstructs original values from token sequences.
-
-        Parameters:
-            tokens : Sequence[int] | Iterable[Sequence[int]]
-                Bit position sequences to decode. Can be:
-                - Single sequence -> returns float
-                - Multiple sequences -> returns array of floats
-
-        Returns:
-            float | np.ndarray[float]
-                Reconstructed value(s). Returns NaN for:
-                - Empty input sequences
-                - Unfitted tokenizer
-                - Invalid bit positions
-
-        Algorithm:
-        1. Starts with center of fitted range
-        2. For each bit position in 0..num_bits-1:
-        - If present in tokens: move toward upper sub-interval
-        - Else: move toward lower sub-interval
-        3. Final position is the decoded value
-        """
-        return self._tokenizer.decode(tokens)
-    
     @property
     def offset(self) -> int:
         return self._offset
 
     @property
-    def num_bits(self) -> int:
-        """
-        Number of bisection levels used (read-only).
-        
-        Determines:
-        - Maximum token sequence length
-        - Theoretical error bound: (max_val-min_val)/2^num_bits
-        """
-        return self._tokenizer.num_bits
+    def num_tokens(self) -> int:
+        """The number of bisections used for encoding (read-only)."""
+        return self._tokenizer.num_tokens
 
     @property
-    def max_active_features(self) -> int:
-        """
-        Maximum possible active tokens per encode (equal to num_bits).
-        """
-        return self._tokenizer.max_active_features
+    def vocab_size(self) -> int:
+        """The total size of the token vocabulary, including the offset."""
+        return self._tokenizer.vocab_size
 
 
 class CategoryTokenizer:
     """
-    Tokenizes categorical string data using a sorted vocabulary with sentinel tokens.
-    Implements efficient binary search for encoding and provides special tokens for:
-    - Missing values (empty/NULL strings)
-    - Unknown categories (values not seen during fitting)
-    - Invalid tokens (out-of-range values)
+    Tokenizes categorical string data into unique integer tokens.
+
+    This tokenizer learns a vocabulary of unique strings from data and maps each
+    string to a unique integer. It uses special sentinel tokens for missing or
+    unseen values.
 
     The token mapping is:
-    0: "__missing__" (reserved for empty/NULL inputs)
-    1: "__unknown__" (reserved for unseen categories)
-    2+: Actual categories (sorted alphabetically)
+    - 0: Missing value (e.g., None, empty string)
+    - 1: Unknown category (a string not seen during `fit`)
+    - 2+: Learned categories, indexed alphabetically.
 
     Args:
-        categories (list[str], optional): Predefined categories. If provided,
-                                        bypasses the need to call fit().
-                                        Defaults to None.
+        offset (int, optional): An integer added to all output token indices.
+            Defaults to 0.
+        categories (list[str], optional): A predefined list of categories. If
+            provided, the tokenizer is fitted immediately, bypassing the need
+            for a separate `.fit()` call. Defaults to None.
 
     Example:
-        >>> tokenizer = CategoryTokenizer()
-        >>> tokenizer.fit(["apple", "banana", "cherry"])
+        >>> tokenizer = CategoryTokenizer(categories=["apple", "banana", "cherry"])
         >>> tokenizer.encode("banana")
-        3  # 2 (offset) + 1 (alphabetical position)
+        array([3], dtype=int32) # 2 (base for categories) + 1 (index of "banana")
         >>> tokenizer.decode([0, 1, 3])
-        ["__missing__", "__unknown__", "banana"]
+        ['Missing', 'Unknown', 'banana']
     """
-    def __init__(self, offset: int = 0):
+    def __init__(self, offset: int = 0, categories: list[str] | None = None):
         self._offset = offset
         self._tokenizer = _CategoryTokenizer(offset=offset)
+        # NOTE: Added user-friendly pre-fitting from the constructor.
+        if categories is not None:
+            self.fit(categories)
 
-    def fit(self, values: list[str]) -> None:
+    def fit(self, values: Iterable[str]) -> None:
         """
-        Builds the category vocabulary from input data.
+        Builds the category vocabulary from the input data.
 
-        Parameters:
-            values : list[str]
-                Raw category strings to learn. Duplicates are automatically removed.
-
-        Implementation Notes:
-        - Sorts categories alphabetically for O(log n) encoding
-        - Empty strings/NULL values map to sentinel token 0
-        - Subsequent unseen values map to token 1
-        - Original strings are copied internally (safe to modify input after fitting)
-
-        C-Level Behavior:
-        1. Deduplicates input while preserving original case
-        2. Uses qsort() with strcmp() for alphabetical ordering
-        3. Allocates independent memory for category strings
+        Args:
+            values (Iterable[str]): A sequence of strings to learn. Duplicates
+                are handled, and the final vocabulary is sorted alphabetically.
         """
+        if not isinstance(values, (np.ndarray)):
+            raise TypeError("Input must be a numpy array of strings.")
         self._tokenizer.fit(values)
 
-    def encode(self, values) -> list[np.ndarray]:
+    def encode(self, values: str | Iterable[str]) -> np.ndarray:
         """
-        Converts category strings to integer tokens.
+        Converts one or more category strings into integer tokens.
 
-        Parameters:
-            values : str | Iterable[str]
-                Input(s) to encode. Can be:
-                - Single string -> returns scalar array
-                - Sequence of strings -> returns 1D array
+        Args:
+            values (str | Iterable[str]): A single string or a sequence of strings.
 
         Returns:
-            np.ndarray[int32]
-                Token values where:
-                - 0 = Missing/empty input
-                - 1 = Unknown category
-                - ≥2 = Valid category (offset by 2)
-
-        Special Cases:
-        - None/empty string → 0 ("__missing__")
-        - Unseen category → 1 ("__unknown__")
-        - Non-string input → TypeError
+            np.ndarray: A 1D NumPy array of integer tokens.
         """
-        tokens = self._tokenizer.encode(values)
-        return tokens
+        if not isinstance(values, (str, list, tuple, np.ndarray)):
+            raise TypeError("Input must be a string or a sequence of strings.")
+        return self._tokenizer.encode(values)
 
-    def decode(self, tokens) -> list[str]:
+    def decode(self, tokens: int | Iterable[int]) -> str | list[str]:
         """
-        Converts tokens back to original category strings.
+        Converts one or more integer tokens back to their original strings.
 
-        Parameters:
-            tokens : int | Iterable[int]
-                Token(s) to decode. Can be:
-                - Single int -> returns single string
-                - Sequence -> returns list of strings
+        Args:
+            tokens (int | Iterable[int]): A single integer token or a sequence of them.
 
         Returns:
-            list[str]
-                Decoded strings with special cases:
-                - 0 → "__missing__"
-                - 1 → "__unknown__"
-                - Invalid tokens → "__invalid__"
-
-        Error Handling:
-        - Returns placeholder strings for invalid tokens rather than raising
-        - Non-integer inputs → TypeError
+            str | list[str]: The decoded string or a list of strings. Special tokens
+            are decoded to placeholder strings (e.g., 'Missing', 'Unknown').
         """
+        if not isinstance(tokens, (int, list, tuple, np.ndarray)):
+            raise TypeError("Input must be an int or a sequence of ints.")
         return self._tokenizer.decode(tokens)
 
     @property
@@ -230,119 +196,70 @@ class CategoryTokenizer:
         return self._offset
     
     @property
-    def num_categories(self) -> int:
-        """
-        The number of unique categories learned (excluding sentinels).
-        Read-only after fitting.
-        """
-        return self._tokenizer.num_categories
-
-    @property
-    def num_bits(self) -> int:
-        """
-        Total token space size (num_categories + 2 sentinels).
-        Useful for determining output dimension in ML models.
-        """
-        return self._tokenizer.num_bits
-
-    @property
-    def max_active_features(self) -> int:
-        """
-        Always returns 3 because:
-        - 1 active category token (≥2)
-        - 2 sentinel bits (for missing/unknown)
-        """
-        return 3
+    def vocab_size(self) -> int:
+        """The total vocabulary size, including special tokens and the offset."""
+        return self._tokenizer.vocab_size
 
 
 class TimestampTokenizer:
     """
-    Tokenizes ISO 8601 timestamps into discrete components with validation.
-    Each timestamp is decomposed into 6 integer tokens representing:
-    1. Year   (with min/max bounds checking)
-    2. Month  (1-12)
-    3. Day    (1-31)
-    4. Hour   (0-23)
-    5. Minute (0-59)
-    6. Second (0-59)
+    Tokenizes ISO 8601 timestamps by decomposing them into 6 integer components.
 
-    Invalid components are automatically flagged with special tokens.
-    The tokenizer is always "fitted" (no separate fit() needed).
+    Each timestamp string is parsed and validated, and its components (year, month,
+    day, hour, minute, second) are encoded into separate integer tokens. This allows
+    a model to learn from time-based features independently.
 
     Args:
-        min_year (int): Minimum allowed year (inclusive). Default: 2000
-        max_year (int): Maximum allowed year (inclusive). Default: 2100
+        min_year (int): The minimum allowed year (inclusive). Defaults to 1970.
+        max_year (int): The maximum allowed year (inclusive). Defaults to 2070.
+        offset (int, optional): An integer added to all output token indices.
+            Defaults to 0.
 
     Example:
         >>> tokenizer = TimestampTokenizer(min_year=2020, max_year=2030)
-        >>> tokens = tokenizer.encode("2025-12-31T23:59:58")
-        >>> tokens
-        array([7, 14, 45, 69, 129, 189], dtype=int32)  # See breakdown below
-        >>> tokenizer.decode(tokens)
-        "2025-12-31T23:59:58"
-    
-    Notes:
-    
-    [0]: Year token (2 + (year - min_year))
-    [1]: Month token (3 + (month - 1))
-    [2]: Day token (15 + (day - 1))       # 15 = 3 (offset) + 12 (months)
-    [3]: Hour token (46 + hour)           # 46 = previous offsets + 31 (days)
-    [4]: Minute token (70 + minute)       # 70 = previous + 24 (hours)
-    [5]: Second token (130 + second)      # 130 = previous + 60 (minutes)
-
-    Special Values:
-    - Year: 0=below min, 1=above max
-    - Other components: Highest token = invalid (e.g., month=15)
+        >>> # Returns a 2D array for a list of inputs
+        >>> tokenizer.encode(["2025-12-31T23:59:58", "2021-01-01T00:00:00"])
+        array([[5, 12, 31, 23, 59, 58],
+               [1,  1,  1,  0,  0,  0]], dtype=int32)
+        >>> tokenizer.decode([5, 12, 31, 23, 59, 58])
+        '2025-12-31T23:59:58'
     """
-    def __init__(self, min_year: int = 2000, max_year: int = 2100, offset: int = 0):
+    def __init__(self, min_year: int = 1970, max_year: int = 2070, offset: int = 0):
+        if not min_year < max_year:
+            raise ValueError("min_year must be less than max_year.")
         self._offset = offset
         self._tokenizer = _TimestampTokenizer(min_year=min_year, max_year=max_year, offset=offset)
 
-    def encode(self, values) -> list[np.ndarray]:
+    def encode(self, values: str | Iterable[str]) -> np.ndarray:
         """
-        Converts ISO 8601 timestamps to component tokens.
+        Converts one or more ISO 8601 timestamps into component tokens.
 
-        Parameters:
-            timestamps : str | Iterable[str]
-                Input timestamp(s) in "YYYY-MM-DDTHH:MM:SS" format.
-                Can be:
-                - Single string -> returns (6,) array
-                - Sequence -> returns list of (6,) arrays
+        Args:
+            values (str | Iterable[str]): A single timestamp string or a sequence of them.
+                Format: "YYYY-MM-DDTHH:MM:SS" (space separator also accepted).
 
         Returns:
-            np.ndarray[int32] | list[np.ndarray[int32]]
-                Array(s) of 6 tokens per timestamp, with:
-                - Valid components: Mapped to token ranges shown above
-                - Invalid components: Flagged with boundary values
-                - Malformed input: All components marked invalid
-
-        Example:
-            >>> tokenizer.encode("2025-02-30T25:61:61")  # Invalid date/time
-            array([7, 5, 46, 70, 130, 190], dtype=int32)  # Day/hour/minute/second invalid
+            np.ndarray:
+            - If input is a single string, returns a 1D NumPy array of shape (6,).
+            - If input is a sequence, returns a 2D NumPy array of shape (n, 6).
         """
-        tokens = self._tokenizer.encode(values)
-        return tokens
+        if not isinstance(values, (str, list, tuple, np.ndarray)):
+            raise TypeError("Input must be a string or a sequence of strings.")
+        return self._tokenizer.encode(values)
 
-    def decode(self, tokens) -> list[str]:
+    def decode(self, tokens: Iterable[int] | Iterable[Iterable[int]]) -> str | list[str]:
         """
-        Reconstructs timestamps from component tokens.
+        Reconstructs one or more timestamps from their 6-component token arrays.
 
-        Parameters:
-            tokens : array-like | Iterable[array-like]
-                Token sequence(s) to decode. Each must contain exactly 6 tokens.
+        Args:
+            tokens (Iterable): A token array of shape (6,) or a sequence of such arrays.
 
         Returns:
-            list[str]
-                Reconstructed timestamps in ISO format. Invalid components return:
-                - "__invalid__" for malformed token sequences.
-                - Clamped values for out-of-bounds years
-                - Best-effort reconstruction for other invalid components
-
-        Example:
-            >>> tokens = tokenizer.encode("2025-02-30T25:61:61") # Invalid date/time
-            >>> tokenizer.decode(tokens)  # [[7, 5, 46, 70, 130, 190],]
-            ["__invalid__"]
+            str | list[str]: The reconstructed ISO 8601 timestamp string(s). Returns
+            a placeholder for invalid or malformed token arrays.
         """
+        if not isinstance(tokens, (list, tuple, np.ndarray)):
+            raise TypeError("Input must be an array-like object of integer tokens.")
         return self._tokenizer.decode(tokens)
     
     @property
@@ -350,22 +267,6 @@ class TimestampTokenizer:
         return self._offset
 
     @property
-    def num_bits(self) -> int:
-        """
-        Total token space size calculated as:
-            3 (year sentinels) + 
-            (max_year - min_year + 1) + 
-            12 (months) + 
-            31 (days) + 
-            24 (hours) + 
-            60 (minutes) + 
-            60 (seconds)
-
-            Example (2000-2100 default range):
-            3 + 101 + 12 + 31 + 24 + 60 + 60 = 291
-        """
-        return self._tokenizer.num_bits
-
-    @property
-    def max_active_features(self) -> int:
-        return self._tokenizer.max_active_features
+    def num_tokens(self) -> int:
+        """The number of tokens generated per timestamp (always 6)."""
+        return self._tokenizer.num_tokens

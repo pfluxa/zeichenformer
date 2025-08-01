@@ -135,3 +135,12 @@ const char* category_decode(const CategoryTokenizer* t, int token) {
 
     return "Error: Invalid Token";
 }
+
+const char** category_get_categories(const CategoryTokenizer* t, size_t* count) {
+    if (!t->fitted) {
+        *count = 0;
+        return NULL;
+    }
+    *count = t->num_categories;
+    return (const char**)t->categories;
+}

@@ -170,6 +170,18 @@ static PyObject* PyNumericalTokenizer_get_vocab_size(PyNumericalTokenizer* self,
     return PyLong_FromLong(self->tokenizer.num_bits);
 }
 
+static PyObject* PyNumericalTokenizer_get_min_val(PyNumericalTokenizer* self, void* closure) {
+    return PyFloat_FromDouble(self->tokenizer.min_val);
+}
+
+static PyObject* PyNumericalTokenizer_get_max_val(PyNumericalTokenizer* self, void* closure) {
+    return PyFloat_FromDouble(self->tokenizer.max_val);
+}
+
+static PyObject* PyNumericalTokenizer_get_fitted(PyNumericalTokenizer* self, void* closure) {
+    return PyBool_FromLong(self->tokenizer.fitted);
+}
+
 // --- Method Table & Type ---
 static PyMethodDef PyNumericalTokenizer_methods[] = {
     {"fit", (PyCFunction)PyNumericalTokenizer_fit, METH_VARARGS, "Fit tokenizer to numerical data."},
@@ -181,6 +193,9 @@ static PyMethodDef PyNumericalTokenizer_methods[] = {
 static PyGetSetDef PyNumericalTokenizer_getset[] = {
     {"num_tokens", (getter)PyNumericalTokenizer_get_num_tokens, NULL, "Number of tokens used for encoding.", NULL},
     {"vocab_size", (getter)PyNumericalTokenizer_get_vocab_size, NULL, "The largest possible token value.", NULL},
+    {"min_val", (getter)PyNumericalTokenizer_get_min_val, NULL, "Min value.", NULL},
+    {"max_val", (getter)PyNumericalTokenizer_get_max_val, NULL, "Max value.", NULL},
+    {"fitted", (getter)PyNumericalTokenizer_get_fitted, NULL, "Fit status.", NULL},
     {NULL}
 };
 
@@ -332,6 +347,19 @@ static PyObject* PyCategoryTokenizer_decode(PyCategoryTokenizer* self, PyObject*
     return (PyObject*)out_array;
 }
 
+// get categories
+static PyObject* PyCategoryTokenizer_get_categories(PyCategoryTokenizer* self, PyObject* args) {
+    size_t count;
+    const char** cats = category_get_categories(&self->tokenizer, &count);
+    if (!cats) {
+        return PyList_New(0);
+    }
+    PyObject* result = PyList_New(count);
+    for (size_t i = 0; i < count; i++) {
+        PyList_SET_ITEM(result, i, PyUnicode_FromString(cats[i]));
+    }
+    return result;
+}
 
 // --- Getters ---
 static PyObject* PyCategoryTokenizer_get_num_tokens(PyCategoryTokenizer* self, void* closure) {
@@ -342,17 +370,23 @@ static PyObject* PyCategoryTokenizer_get_vocab_size(PyCategoryTokenizer* self, v
     return PyLong_FromLong(self->tokenizer.num_tokens);
 }
 
+static PyObject* PyCategoryTokenizer_get_fitted(PyCategoryTokenizer* self, void* closure) {
+    return PyBool_FromLong(self->tokenizer.fitted);
+}
+
 // --- Method Table & Type ---
 static PyMethodDef PyCategoryTokenizer_methods[] = {
     {"fit", (PyCFunction)PyCategoryTokenizer_fit, METH_VARARGS, "Fit tokenizer to a NumPy array of strings."},
     {"encode", (PyCFunction)PyCategoryTokenizer_encode, METH_VARARGS, "Encode a NumPy array of strings into tokens."},
     {"decode", (PyCFunction)PyCategoryTokenizer_decode, METH_VARARGS, "Decode a list of token arrays back to strings."},
+    {"get_categories", (PyCFunction)PyCategoryTokenizer_get_categories, METH_NOARGS, "Get all learned categories"}, // New
     {NULL}
 };
 
 static PyGetSetDef PyCategoryTokenizer_getset[] = {
     {"num_tokens", (getter)PyCategoryTokenizer_get_num_tokens, NULL, "Number of tokens used for encoding.", NULL},
     {"vocab_size", (getter)PyCategoryTokenizer_get_vocab_size, NULL, "Total vocabulary size including special tokens.", NULL},
+    {"fitted", (getter)PyCategoryTokenizer_get_fitted, NULL, "Fitted status", NULL}, // New
     {NULL}
 };
 
@@ -486,6 +520,13 @@ static PyObject* PyTimestampTokenizer_get_vocab_size(PyTimestampTokenizer* self,
     return PyLong_FromLong((long)(fmax(self->tokenizer.max_year - self->tokenizer.min_year, 60) + 1));
 }
 
+static PyObject* PyTimestampTokenizer_get_min_year(PyTimestampTokenizer* self, void* closure) {
+    return PyLong_FromLong(self->tokenizer.min_year);
+}
+
+static PyObject* PyTimestampTokenizer_get_max_year(PyTimestampTokenizer* self, void* closure) {
+    return PyLong_FromLong(self->tokenizer.max_year);
+}
 
 // --- Method Table & Type ---
 static PyMethodDef PyTimestampTokenizer_methods[] = {
@@ -498,6 +539,8 @@ static PyMethodDef PyTimestampTokenizer_methods[] = {
 static PyGetSetDef PyTimestampTokenizer_getset[] = {
     {"num_tokens", (getter)PyTimestampTokenizer_get_num_tokens, NULL, "Number of tokens used for encoding.", NULL},
     {"vocab_size", (getter)PyTimestampTokenizer_get_vocab_size, NULL, "Total vocabulary size including special tokens.", NULL},
+    {"min_year", (getter)PyTimestampTokenizer_get_min_year, NULL, "Min year", NULL}, // New
+    {"max_year", (getter)PyTimestampTokenizer_get_max_year, NULL, "Max year", NULL}, // New
     {NULL}
 };
 

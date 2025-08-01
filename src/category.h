@@ -7,6 +7,7 @@
 
 typedef struct __attribute__((aligned(8))) {
     char** categories;
+    size_t num_tokens;
     size_t num_categories;
     bool fitted;
     int offset;
